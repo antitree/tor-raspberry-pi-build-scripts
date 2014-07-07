@@ -5,6 +5,7 @@
 
 INTERACTIVE=True
 ASK_TO_REBOOT=0
+TOR=/usr/sbin/tor
 
 calc_wt_size() {
   # NOTE: it's tempting to redirect stderr to /dev/null, so supress error 
@@ -24,10 +25,9 @@ calc_wt_size() {
 
 do_about() {
   whiptail --msgbox "\
-This tool provides a straight-forward way of doing initial
-configuration of the Raspberry Pi. Although it can be run
-at any time, some of the options may have difficulties if
-you have heavily customised your installation.\
+This tool provides a way of configuring Tor on a Raspberry
+Pi. It was based off of the Rasp-conf tool included in 
+Raspbian. @antitree \
 " 20 70 1
 }
 
@@ -181,17 +181,19 @@ do_overscan() {
 
 do_change_pass() {
   whiptail --msgbox "You will now be asked to enter a new password for the pi user" 20 60 1
-  passwd pi &&
+  passwd root &&
   whiptail --msgbox "Password changed successfully" 20 60 1
 }
 
 do_configure_keyboard() {
+  ##TODO requires keyboard-configuration package
   dpkg-reconfigure keyboard-configuration &&
   printf "Reloading keymap. This may take a short while\n" &&
   invoke-rc.d keyboard-setup start
 }
 
 do_change_locale() {
+  #TODO requires locales package
   dpkg-reconfigure locales
 }
 
@@ -357,19 +359,17 @@ EOF
 }
 
 do_ssh() {
-  if [ -e /var/log/regen_ssh_keys.log ] && ! grep -q "^finished" /var/log/regen_ssh_keys.log; then
-    whiptail --msgbox "Initial ssh key generation still running. Please wait and try again." 20 60 2
-    return 1
-  fi
   whiptail --yesno "Would you like the SSH server enabled or disabled?" 20 60 2 \
     --yes-button Enable --no-button Disable
   RET=$?
   if [ $RET -eq 0 ]; then
     update-rc.d ssh enable &&
-    invoke-rc.d ssh start &&
+	sed -i "s/^NO_START=1/NO_START=0/" /etc/default/dropbear
+	service dropbear start
     whiptail --msgbox "SSH server enabled" 20 60 1
   elif [ $RET -eq 1 ]; then
-    update-rc.d ssh disable &&
+	sed -i "s/^NO_START=0/NO_START=1/" /etc/default/dropbear
+	service dropbear stop
     whiptail --msgbox "SSH server disabled" 20 60 1
   else
     return $RET
@@ -409,56 +409,7 @@ disable_raspi_config_at_boot() {
   fi
 }
 
-enable_boot_to_scratch() {
-  if [ -e /etc/profile.d/boottoscratch.sh ]; then
-    printf "/etc/profile.d/boottoscratch.sh exists, so assuming boot to scratch enabled\n"
-    return 0;
-  fi
-  sed -i /etc/inittab -e "s|^\(1:2345.*getty.*tty1.*\)|\
-#\1 # BTS_TO_ENABLE\n1:2345:respawn:/bin/login -f pi tty1 </dev/tty1 >/dev/tty1 2>\&1 # BTS_TO_DISABLE|"
-  cat <<\EOF > /etc/profile.d/boottoscratch.sh
-#!/bin/sh
-# Part of raspi-config http://github.com/asb/raspi-config
-#
-# See LICENSE file for copyright and license details
 
-# Should be installed to /etc/profile.d/boottoscratch.sh to force scratch to run upon boot
-
-# You may also want to set automatic login in /etc/inittab on tty1 by adding a 
-# line such as the following (raspi-config does this for you):
-# 1:2345:respawn:/bin/login -f pi tty1 </dev/tty1 >/dev/tty1 2>&1 # BTS_TO_DISABLE
-
-if [ $(tty) = "/dev/tty1" ]; then
-  printf "openbox --config-file /home/pi/boottoscratch/openbox_rc.xml & scratch" | xinit /dev/stdin
-  printf "\n\n\nShutting down in 5 seconds, hit ctrl-C to cancel\n" && sleep 5 && sudo shutdown -h now
-fi
-EOF
-
-  mkdir -p /home/pi/boottoscratch
-  cat <<\EOF > /home/pi/boottoscratch/openbox_rc.xml
-<?xml version="1.0" encoding="UTF-8"?>
-<openbox_config xmlns="http://openbox.org/3.4/rc"
-    xmlns:xi="http://www.w3.org/2001/XInclude">
-<applications>
-  <application name="squeak" type="normal">
-    <focus>yes</focus>
-    <fullscreen>yes</fullscreen>
-  </application>
-</applications>
-</openbox_config>
-EOF
-  telinit q
-}
-
-disable_boot_to_scratch() {
-  if [ -e /etc/profile.d/boottoscratch.sh ]; then
-    rm -f /etc/profile.d/boottoscratch.sh
-    sed -i /etc/inittab \
-      -e "s/^#\(.*\)#\s*BTS_TO_ENABLE\s*/\1/" \
-      -e "/#\s*BTS_TO_DISABLE/d"
-    telinit q
-  fi
-}
 
 do_boot_behaviour() {
   BOOTOPT=$(whiptail --menu "Chose boot option" 20 60 10 \
@@ -509,70 +460,8 @@ do_boot_behaviour() {
   fi
 }
 
-do_rastrack() {
-  whiptail --msgbox "\
-Rastrack (http://rastrack.co.uk) is a website run by Ryan Walmsley
-for tracking where people are using Raspberry Pis around the world.
-If you have an internet connection, you can add yourself directly
-using this tool. This is just a bit of fun, not any sort of official
-registration.\
-" 20 70 1
-  if [ $? -ne 0 ]; then
-    return 0;
-  fi
-  UNAME=$(whiptail --inputbox "Username / Nickname For Rastrack Addition" 20 70 3>&1 1>&2 2>&3)
-  if [ $? -ne 0 ]; then
-    return 1;
-  fi
-  EMAIL=$(whiptail --inputbox "Email Address For Rastrack Addition" 20 70 3>&1 1>&2 2>&3)
-  if [ $? -ne 0 ]; then
-    return 1;
-  fi
-  curl --data "name=$UNAME&email=$EMAIL" http://rastrack.co.uk/api.php
-  printf "Hit enter to continue\n"
-  read TMP
-}
 
-# $1 is 0 to disable camera, 1 to enable it
-set_camera() {
-  # Stop if /boot is not a mountpoint
-  if ! mountpoint -q /boot; then
-    return 1
-  fi
 
-  [ -e /boot/config.txt ] || touch /boot/config.txt
-
-  if [ "$1" -eq 0 ]; then # disable camera
-    set_config_var start_x 0 /boot/config.txt
-    sed /boot/config.txt -i -e "s/^startx/#startx/"
-    sed /boot/config.txt -i -e "s/^start_file/#start_file/"
-    sed /boot/config.txt -i -e "s/^fixup_file/#fixup_file/"
-  else # enable camera
-    set_config_var start_x 1 /boot/config.txt
-    CUR_GPU_MEM=$(get_config_var gpu_mem /boot/config.txt)
-    if [ -z "$CUR_GPU_MEM" ] || [ "$CUR_GPU_MEM" -lt 128 ]; then
-      set_config_var gpu_mem 128 /boot/config.txt
-    fi
-    sed /boot/config.txt -i -e "s/^startx/#startx/"
-    sed /boot/config.txt -i -e "s/^fixup_file/#fixup_file/"
-  fi
-}
-
-do_camera() {
-  if [ ! -e /boot/start_x.elf ]; then
-    whiptail --msgbox "Your firmware appears to be out of date (no start_x.elf). Please update" 20 60 2
-    return 1
-  fi
-  whiptail --yesno "Enable support for Raspberry Pi camera?" 20 60 2 \
-    --yes-button Disable --no-button Enable
-  RET=$?
-  if [ $RET -eq 0 ] || [ $RET -eq 1 ]; then
-    ASK_TO_REBOOT=1
-    set_camera $RET;
-  else
-    return 1
-  fi
-}
 
 do_update() {
   apt-get update &&
@@ -743,6 +632,92 @@ if [ -n "${OPT_MEMORY_SPLIT:-}" ]; then
   exit 0
 fi
 
+do_todo() {
+  whiptail --msgbox "This feature is not yet implemented" 20 60 1
+}
+
+do_configure_tor() {
+  FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "Tor Configuration Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
+  "I1 Setup Bridge" "Configure the system as a bridge node" \
+  "I2 Setup Relay (Not currently available)" "Set up timezone to match your location" \
+  3>&1 1>&2 2>&3)
+    RET=$?
+  if [ $RET -eq 1 ]; then
+    return 0
+  elif [ $RET -eq 0 ]; then
+    case "$FUN" in
+      I1\ *) do_configure_bridge ;;
+      I2\ *) ;;
+      *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
+    esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
+  fi
+  
+}
+
+do_configure_bridge() {
+  ## Setup bridge options
+   whiptail --msgbox "\
+Setting up a bridge node is the best way to help countries where Tor
+is being blocked. A bridge (and ideally an obfuscated bridge) is an 
+unlisted entry node that is more difficult to censor. This is the 
+easiest way to help out Tor network users. NOTE: This will overwrite 
+any existing torrc configurations.\
+" 20 70 1
+  if [ $? -ne 0 ]; then
+    return 0;
+  fi
+  NICKNAME=$(whiptail --inputbox "Bridge Nickname" 20 70 3>&1 1>&2 2>&3)
+  if [ $? -ne 0 ]; then
+    return 1;
+  fi
+  EMAIL=$(whiptail --inputbox "Email Address to conact you if there is a problem with your node" 20 70 3>&1 1>&2 2>&3)
+  if [ $? -ne 0 ]; then
+    return 1;
+  fi
+  PORT=$(whiptail --inputbox "Listening port of the bridge. Ideally this should be 443 but use other ports if this is already in use by your network" 20 70 443 3>&1 1>&2 2>&3)
+  if [ $? -ne 0 ]; then
+    return 1;
+  fi
+  
+  #Backup old torrc
+  cp /etc/tor/torrc /etc/tor/torrc.backup
+  cp /etc/tor/torrc.default /etc/tor/torrc
+  
+  TORRC=/etc/tor/torrc
+  
+  #Modify the Torrc
+  sed -i "s/^#Nickname CHANGEME/Nickname $NICKNAME/" "$TORRC"
+  sed -i "s/^#ContactInfo None/ContactInfo $EMAIL/" "$TORRC"
+  sed -i "s/^#SocksPort 0/SocksPort 0/" "$TORRC"
+  sed -i "s/^#ORPort 443/ORPort $PORT/" "$TORRC"
+  sed -i "s/^#BridgeRelay/BridgeRelay/" "$TORRC"
+  sed -i "s/^#ExitPolicy reject/ExitPolicy reject/" "$TORRC"
+  sed -i "s/^#ServerTransportPlugin/ServerTransportPlugin/" "$TORRC"
+  if ! check_tor_config ; then
+	whiptail --msgbox "Configuration error: Torrc is not configured correctly" 20 60 1 
+	cp /etc/tor/torrc.backup /etc/tor/torrc
+	return 1
+  else
+	whiptail --msgbox "Tor configuration was successful. The service will now restart" 20 60 1
+	service tor restart
+  fi
+
+
+}
+
+
+
+check_tor_config() {
+	if ! $TOR --verify-config > /dev/null; then
+		return 1;
+	else
+		return 0;
+	fi
+  
+  
+}
+
+
 do_internationalisation_menu() {
   FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "Internationalisation Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
     "I1 Change Locale" "Set up language and regional settings to match your location" \
@@ -754,9 +729,9 @@ do_internationalisation_menu() {
     return 0
   elif [ $RET -eq 0 ]; then
     case "$FUN" in
-      I1\ *) do_change_locale ;;
+      I1\ *) do_todo ;;
       I2\ *) do_change_timezone ;;
-      I3\ *) do_configure_keyboard ;;
+      I3\ *) do_todo ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi
@@ -777,12 +752,12 @@ do_advanced_menu() {
     return 0
   elif [ $RET -eq 0 ]; then
     case "$FUN" in
-      A1\ *) do_overscan ;;
+      A1\ *) do_todo ;;
       A2\ *) do_change_hostname ;;
-      A3\ *) do_memory_split ;;
+      A3\ *) do_todo ;;
       A4\ *) do_ssh ;;
-      A5\ *) do_spi ;;
-      A6\ *) do_audio ;;
+      A5\ *) do_todo ;;
+      A6\ *) do_todo ;;
       A7\ *) do_update ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
@@ -798,13 +773,10 @@ while true; do
   FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "Setup Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Finish --ok-button Select \
     "1 Expand Filesystem" "Ensures that all of the SD card storage is available to the OS" \
     "2 Change User Password" "Change password for the default user (pi)" \
-    "3 Enable Boot to Desktop/Scratch" "Choose whether to boot into a desktop environment, Scratch, or the command-line" \
-    "4 Internationalisation Options" "Set up language and regional settings to match your location" \
-    "5 Enable Camera" "Enable this Pi to work with the Raspberry Pi Camera" \
-    "6 Add to Rastrack" "Add this Pi to the online Raspberry Pi Map (Rastrack)" \
-    "7 Overclock" "Configure overclocking for your Pi" \
-    "8 Advanced Options" "Configure advanced settings" \
-    "9 About raspi-config" "Information about this configuration tool" \
+    "3 Configure Tor relay " "Configure Tor as a bridge, middle, or exit node" \
+    "4 Manage SSH" "Enable or disable SSH access" \
+    "5 Advanced Options" "Configure advanced settings" \
+    "6 About torpi-config" "Information about this configuration tool" \
     3>&1 1>&2 2>&3)
   RET=$?
   if [ $RET -eq 1 ]; then
@@ -813,13 +785,10 @@ while true; do
     case "$FUN" in
       1\ *) do_expand_rootfs ;;
       2\ *) do_change_pass ;;
-      3\ *) do_boot_behaviour ;;
-      4\ *) do_internationalisation_menu ;;
-      5\ *) do_camera ;;
-      6\ *) do_rastrack ;;
-      7\ *) do_overclock ;;
-      8\ *) do_advanced_menu ;;
-      9\ *) do_about ;;
+      3\ *) do_configure_tor ;;
+      4\ *) do_ssh ;;
+      5\ *) do_advanced_menu ;;
+      6\ *) do_about ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   else
