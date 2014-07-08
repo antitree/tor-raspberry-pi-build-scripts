@@ -1,7 +1,9 @@
 #!/bin/sh
-# Part of raspi-config http://github.com/asb/raspi-config
+# Configuration tool for setting up a bridge on the Raspberry Pi
+# Modified from
+# raspi-config http://github.com/asb/raspi-config
 #
-# See LICENSE file for copyright and license details
+# # #
 
 INTERACTIVE=True
 ASK_TO_REBOOT=1

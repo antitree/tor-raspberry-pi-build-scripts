@@ -3,10 +3,11 @@ The following is the design document and list of commands to accomplish the desi
 
 ## Overview ##
 The purpose of this image is:
-** Help facilitate users to run obfuscated bridges on their RBP's **
+
+1)  Help facilitate users to run obfuscated bridges on their RBP's: 
 Providing a pre-built environment for the latest version of Tor, pre-installing obfsproxy, providing an easy-to-use configuration tool that helps get you up and running without much prior knowledge. 
 
-** Optimize the distro for Tor running a RBP **
+2) Optimize the distro for Tor running a RBP: 
 This is accomplished by modifying a minimal Debian Wheezy image to include only necessary packages, use packages with minimal memory usage, avoid unnecessary wear on the SDCard, and ensure that Tor is running as expected. 
 
 
