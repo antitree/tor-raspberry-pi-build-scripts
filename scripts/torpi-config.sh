@@ -34,10 +34,10 @@ Raspbian. @antitree \
 }
 
 do_expand_rootfs() {
-  #if ! [ -h /dev/root ]; then
-  #  whiptail --msgbox "/dev/root does not exist or is not a symlink. Don't know how to expand" 20 60 2
-  #  return 0
-  #fi
+  if ! [ -h /dev/root ]; then
+    whiptail --msgbox "/dev/root does not exist or is not a symlink. Don't know how to expand" 20 60 2
+    return 0
+  fi
 
   ROOT_PART=$(readlink /dev/root)
   PART_NUM=${ROOT_PART#mmcblk0p}
@@ -640,8 +640,7 @@ do_todo() {
 
 do_configure_tor() {
   FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "Tor Configuration Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
-  "I1 Setup Bridge" "Configure the system as a bridge node" \
-  "I2 Setup Relay (Not currently available)" "Set up timezone to match your location" \
+  "I1 Setup Bridge" "Configure the system as an obfuscated bridge node" \
   3>&1 1>&2 2>&3)
     RET=$?
   if [ $RET -eq 1 ]; then
@@ -673,13 +672,16 @@ this bridge.  \
   fi
   
   whiptail --yesno "Networking needs to reset to apply your changes. \
-   this may cut out existing connections including SSH. Is that ok?" 20 60 2 \
+   This may cut out existing connections including SSH. Is that ok?" 20 60 2 \
     --yes-button Yes --no-button No
   RET=$?
   if [ $RET -eq 0 ]; then
 	service networking restart
 	whiptail --msgbox "Networking restarted successfully" 20 70 1
+  else
+    whiptail --msgbox "You must restart to apply networking settings" 20 70 1
   fi
+  return 0
 }
 
 clean_interfaces() {
@@ -719,11 +721,11 @@ do_dhcp() {
 do_configure_bridge() {
   ## Setup bridge options
    whiptail --msgbox "\
-Setting up a bridge node is the best way to help countries where Tor
-is being blocked. A bridge (and ideally an obfuscated bridge) is an 
-unlisted entry node that is more difficult to censor. This is the 
-easiest way to help out Tor network users. NOTE: This will overwrite 
-any existing torrc configurations.\
+Setting up a bridge node is the best way to help countries where
+Tor is being blocked. A bridge (and ideally an obfuscated bridge)
+is an unlisted entry node that is more difficult to censor. This
+tool will walk you through the steps of configuring a bridge that
+uses obfsproxy \
 " 20 70 1
   if [ $? -ne 0 ]; then
     return 0;
@@ -761,12 +763,13 @@ any existing torrc configurations.\
 	return 1
   else
 	whiptail --msgbox "Tor configuration was successful. The service will now restart" 20 60 1
+	service watchdog stop
 	service tor restart
+	service watchdog start
+	return 0
   fi
 
-
 }
-
 
 
 check_tor_config() {
@@ -775,8 +778,24 @@ check_tor_config() {
 	else
 		return 0;
 	fi
-  
-  
+}
+
+do_update_obf() {
+	# Check if obfsproxy is up to date
+	OBFS=$(pip search obfsproxy | grep "latest")
+	if [ -z "$OBFS" ]; then
+		echo Updating obfsproxy...
+		pip install obfsproxy -U -q
+		rm -rf ./build
+	fi
+	RET=$?
+	if [ $RET -eq 0 ]; then
+		whiptail --msgbox "Obfsproxy is up to date" 20 70 1
+		return 0
+	else:
+		whiptail --msgbox "There was a problem updating Obfsproxy" 20 70 1
+		return 1
+	fi
 }
 
 
@@ -837,9 +856,9 @@ while true; do
     "2 Change User Password" "Change password for the default user (pi)" \
 	"3 Configure Networking" "Setup a static IP for the relay" \
     "4 Configure Tor relay " "Configure Tor as a bridge, middle, or exit node" \
-    "5 Manage SSH" "Enable or disable SSH access" \
-    "6 Advanced Options" "Configure advanced settings" \
-    "7 About torpi-config" "Information about this configuration tool" \
+	"5 Update Obfsproxy " "Update the Obfsproxy for providing an obfuscated bridge" \
+    "6 Manage SSH" "Enable or disable SSH access" \
+    "0 About torpi-config" "Information about this configuration tool" \
     3>&1 1>&2 2>&3)
   RET=$?
   if [ $RET -eq 1 ]; then
@@ -850,9 +869,9 @@ while true; do
       2\ *) do_change_pass ;;
 	  3\ *) do_network ;;
       4\ *) do_configure_tor ;;
-      5\ *) do_ssh ;;
-      6\ *) do_advanced_menu ;;
-      7\ *) do_about ;;
+	  5\ *) do_update_obf ;;
+      6\ *) do_ssh ;;
+      0\ *) do_about ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   else
