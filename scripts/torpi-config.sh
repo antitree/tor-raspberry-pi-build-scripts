@@ -4,7 +4,7 @@
 # See LICENSE file for copyright and license details
 
 INTERACTIVE=True
-ASK_TO_REBOOT=0
+ASK_TO_REBOOT=1
 TOR=/usr/sbin/tor
 
 calc_wt_size() {
@@ -32,10 +32,10 @@ Raspbian. @antitree \
 }
 
 do_expand_rootfs() {
-  if ! [ -h /dev/root ]; then
-    whiptail --msgbox "/dev/root does not exist or is not a symlink. Don't know how to expand" 20 60 2
-    return 0
-  fi
+  #if ! [ -h /dev/root ]; then
+  #  whiptail --msgbox "/dev/root does not exist or is not a symlink. Don't know how to expand" 20 60 2
+  #  return 0
+  #fi
 
   ROOT_PART=$(readlink /dev/root)
   PART_NUM=${ROOT_PART#mmcblk0p}
@@ -654,6 +654,66 @@ do_configure_tor() {
   
 }
 
+
+do_network() {
+  whiptail --msgbox "\
+In most cases to setup a bridge you will need to set a static IP
+behind your router and then forward a port from the firewall to
+this bridge.  \
+" 20 70 1
+  whiptail --yesno "Would you like to set a static IP?" 20 60 2 \
+    --yes-button Enable --no-button Disable
+  RET=$?
+  if [ $RET -eq 0 ]; then
+	do_static
+  elif [ $RET -eq 1 ]; then
+    do_dhcp
+  fi
+  
+  whiptail --yesno "Networking needs to reset to apply your changes. \
+   this may cut out existing connections including SSH. Is that ok?" 20 60 2 \
+    --yes-button Yes --no-button No
+  RET=$?
+  if [ $RET -eq 0 ]; then
+	service networking restart
+	whiptail --msgbox "Networking restarted successfully" 20 70 1
+  fi
+}
+
+clean_interfaces() {
+  echo auto lo > /etc/network/interfaces
+  echo iface lo inet loopback >> /etc/network/interfaces
+  echo >> /etc/network/interfaces
+  echo auto eth0  >> /etc/network/interfaces
+}
+
+do_static(){
+  ## Set static networking
+  clean_interfaces
+  echo iface eth0 inet static >> /etc/network/interfaces
+  IP=$(whiptail --inputbox "IP address" 20 70 3>&1 1>&2 2>&3)
+  if [ $? -ne 0 ]; then
+    return 1;
+  fi
+  SUBNET=$(whiptail --inputbox "Subnet" 20 70 "255.255.255.0" 3>&1 1>&2 2>&3)
+  if [ $? -ne 0 ]; then
+    return 1;
+  fi
+  GW=$(whiptail --inputbox "Gateway" 20 70 3>&1 1>&2 2>&3)
+  if [ $? -ne 0 ]; then
+    return 1;
+  fi  
+  echo "  address $IP" >> /etc/network/interfaces
+  echo "  netmask $SUBNET" >> /etc/network/interfaces
+  echo "  gateway $GW" >> /etc/network/interfaces
+}  
+
+do_dhcp() {
+  ## Setup DHCP
+  clean_interfaces
+  echo iface eth0 inet dhcp >> /etc/network/interfaces
+}
+
 do_configure_bridge() {
   ## Setup bridge options
    whiptail --msgbox "\
@@ -773,10 +833,11 @@ while true; do
   FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "Setup Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Finish --ok-button Select \
     "1 Expand Filesystem" "Ensures that all of the SD card storage is available to the OS" \
     "2 Change User Password" "Change password for the default user (pi)" \
-    "3 Configure Tor relay " "Configure Tor as a bridge, middle, or exit node" \
-    "4 Manage SSH" "Enable or disable SSH access" \
-    "5 Advanced Options" "Configure advanced settings" \
-    "6 About torpi-config" "Information about this configuration tool" \
+	"3 Configure Networking" "Setup a static IP for the relay" \
+    "4 Configure Tor relay " "Configure Tor as a bridge, middle, or exit node" \
+    "5 Manage SSH" "Enable or disable SSH access" \
+    "6 Advanced Options" "Configure advanced settings" \
+    "7 About torpi-config" "Information about this configuration tool" \
     3>&1 1>&2 2>&3)
   RET=$?
   if [ $RET -eq 1 ]; then
@@ -785,10 +846,11 @@ while true; do
     case "$FUN" in
       1\ *) do_expand_rootfs ;;
       2\ *) do_change_pass ;;
-      3\ *) do_configure_tor ;;
-      4\ *) do_ssh ;;
-      5\ *) do_advanced_menu ;;
-      6\ *) do_about ;;
+	  3\ *) do_network ;;
+      4\ *) do_configure_tor ;;
+      5\ *) do_ssh ;;
+      6\ *) do_advanced_menu ;;
+      7\ *) do_about ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   else
