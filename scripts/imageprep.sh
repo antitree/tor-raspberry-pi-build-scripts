@@ -35,6 +35,12 @@ check_updates() {
 	fi
 }
 
+check_binaries() {
+	# Check that custom binaries are in place
+	chmod +x /usr/local/bin/*
+	
+}
+
 reset_ssh() {
     rm /etc/dropbear/dropbear_*_host_key
     dropbearkey -t rsa -f /etc/dropbear/dropbear_rsa_host_key > /dev/null 2>&1
@@ -55,6 +61,8 @@ clean_tor() {
 
 
 echo Starting pre-image cleanup
+echo checking binaries
+check_binaries
 echo checking for updates
 check_updates
 echo clearning cache
@@ -65,6 +73,7 @@ echo resetting SSH
 reset_ssh
 echo resetting network configuration
 reset_network
+
 
 
 #Prep for first boot
