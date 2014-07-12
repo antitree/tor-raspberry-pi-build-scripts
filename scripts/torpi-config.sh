@@ -13,8 +13,8 @@ calc_wt_size() {
   # NOTE: it's tempting to redirect stderr to /dev/null, so supress error 
   # output from tput. However in this case, tput detects neither stdout or 
   # stderr is a tty and so only gives default 80, 24 values
-  WT_HEIGHT=17
   WT_WIDTH=$(tput cols)
+  WT_HEIGHT=17
 
   if [ -z "$WT_WIDTH" ] || [ "$WT_WIDTH" -lt 60 ]; then
     WT_WIDTH=80
@@ -410,7 +410,8 @@ uses obfsproxy \
   if [ $? -ne 0 ]; then
     return 0;
   fi
-  NICKNAME=$(whiptail --inputbox "Bridge Nickname" 20 70 3>&1 1>&2 2>&3)
+  DNICK=$(tr -cd 0-9 </dev/urandom | head -c 6)
+  NICKNAME=$(whiptail --inputbox "Bridge Nickname" 20 70 torpi$DNICK 3>&1 1>&2 2>&3)
   if [ $? -ne 0 ]; then
     return 1;
   fi
@@ -443,14 +444,13 @@ uses obfsproxy \
 	return 1
   else
 	whiptail --msgbox "Tor configuration was successful. The service will now restart" 20 60 1
-	service watchdog stop
+	#service watchdog stop
 	service tor restart
-	service watchdog start
+	#service watchdog start
 	return 0
   fi
 
 }
-
 
 check_tor_config() {
 	if ! $TOR --verify-config > /dev/null; then
@@ -480,12 +480,95 @@ do_update_obf() {
 }
 
 
+start_wizard() {
+  whiptail --yesno --title "Tor Pi Configuration Wizard" \
+  "This is the Tor Pi configuration wizard that will guide you through \
+setting up your Raspberry Pi as a Tor Bridge Relay. Would you like \
+to continue?" 20 60 2 \
+    --yes-button Yes --no-button No 
+  RET=$?
+  if [ $RET -eq 1 ]; then
+    return $RET
+  fi
+  
+  
+  #whiptail --yesno --title "Password Change" \
+  #"It's recommended that you change the default root password. Would \
+#you like to do so now? \
+  #" 20 60 2 --yes-button Yes --no-button No 
+  #RET=$?
+  #if [ $RET -eq 1 ]; then
+    #return $RET
+  #else
+	do_change_pass
+  #fi
+  
+  ## Configure networking
+  do_network
+ 
+  whiptail --yesno --title "Update software" \
+  "It's important to update to the latest version of \
+the obfsproxy to provide an obfuscated bridge.  \
+Would you like to do so now? \
+  " 20 60 2 --yes-button Yes --no-button No 
+  RET=$?
+  if [ $RET -eq 1 ]; then
+    return $RET
+  else
+	do_update_obf
+  fi
+  
+  #whiptail --yesno --title "Configure Tor" \
+  #"This will help you configure Tor as an obfuscated bridge relay. \
+#Are you ready to continue? \
+  #" 20 60 2 \
+  #  --yes-button Yes --no-button No 
+  #RET=$?
+  #if [ $RET -eq 1 ]; then
+  #  return $RET
+  #else
+	do_configure_bridge
+  #fi  
+  
+  
+  whiptail --msgbox --title "Configuration successful" \
+  "Congratulations. You have successfully configured your Raspberry Pi \
+as a Tor Bridge relay. If you would like to make any changes you can \
+always re-run torpi-config at any time. The system will not restart to \
+apply its changes.
+   
+NOTE: YOU ARE NOT DONE. Make sure that you forward the bridge port \
+through your firewall to the IP address you just configured. 
+  
+  #" 20 60 2 \
+} 
+
+
+for i in $*
+do
+  case $i in
+  -w)
+    start_wizard 
+	RET=$?
+	if [ $RET -eq 1 ]; then
+	    whiptail --msgbox "The wizard is incomplete. You will need to manually make changes to the system going forward" 20 60 1 
+	fi
+	;;
+  *)
+    # unknown option
+    ;;
+  esac
+done
+
+
+ 
+  
 #
-# Interactive use loop
+#
 #
 calc_wt_size
 while true; do
-  FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "Setup Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Finish --ok-button Select \
+  FUN=$(whiptail --title "Tor Pi Software Configuration Tool (torpi-config)" --menu "Setup Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Finish --ok-button Select \
     "1 Expand Filesystem" "Ensures that all of the SD card storage is available to the OS" \
     "2 Change User Password" "Change password for the default user (pi)" \
 	"3 Configure Networking" "Setup a static IP for the relay" \
