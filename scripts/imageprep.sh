@@ -7,6 +7,9 @@
 
 FB=/firstboot
 
+VERSION=$(cat /etc/rbb-version)
+
+
 reset_network() {
   echo auto lo > /etc/network/interfaces
   echo iface lo inet loopback >> /etc/network/interfaces
@@ -59,8 +62,15 @@ clean_tor() {
 	rm /etc/tor/torrc.backup
 }
 
+update_version() {
+	##TODO
+	echo TODO Fix this
+}
+
 
 echo Starting pre-image cleanup
+echo Updating version
+update_version
 echo checking binaries
 check_binaries
 echo checking for updates
