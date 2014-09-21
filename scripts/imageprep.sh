@@ -54,6 +54,7 @@ clear_cache() {
 	apt-get clean
 	rm /root/.bash_history
 	rm -rf /var/backups/* /var/lib/apt/lists/* /root/* /root/.pip /root/.vim /root/.viminfo
+	history -c
 }
 	
 clean_tor() {
@@ -64,7 +65,19 @@ clean_tor() {
 
 update_version() {
 	##TODO
-	echo TODO Fix this
+	rm ./Tor_Ascii_Art.txt
+	wget https://raw.githubusercontent.com/antitree/tor-raspberry-pi-build-scripts/master/scripts/Tor_Ascii_Art.txt
+	if ! [ -e Tor_Ascii_Art.txt ]; then
+		exit 1
+	fi
+	cp Tor_Ascii_Art.txt /etc/motd
+	echo >> /etc/motd
+	echo Raspberry Bridge $VERSION >>  /etc/motd
+	echo Built: `date +%m-%d-%Y` >> /etc/motd
+	echo Author: AntiTree - http://rbb.antitree.com >> /etc/motd
+	echo >> /etc/motd
+	echo Welcome to Bridge Pi. To get started run torpi-config from the command line.
+	echo >> /etc/motd
 }
 
 
@@ -85,9 +98,9 @@ echo resetting network configuration
 reset_network
 
 
-
 #Prep for first boot
 touch /firstboot
+cat /etc/motd
 echo ---------------------- 
 echo Summary:
 echo Reset ssh, checked for updates, cleared cach, rest tor, reset network
