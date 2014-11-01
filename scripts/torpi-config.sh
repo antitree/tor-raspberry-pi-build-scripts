@@ -444,7 +444,6 @@ uses obfsproxy \
   sed -i "s/^#ExitPolicy reject/ExitPolicy reject/" "$TORRC"
   sed -i "s/^#ServerTransportPlugin/ServerTransportPlugin/" "$TORRC"
   sed -i "s/^#ServerTransportListenAddr obfs4 0.0.0.0:61090/ServerTransportListenAddr obfs4 0.0.0.0:$OPORT/" "$TORRC"
-  sed -i "s/^#S
   if ! check_tor_config ; then
 	whiptail --msgbox "Configuration error: Torrc is not configured correctly" 20 60 1 
 	cp /etc/tor/torrc.backup /etc/tor/torrc
