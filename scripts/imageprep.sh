@@ -60,23 +60,25 @@ reset_ssh() {
 
 clear_cache() {
 	apt-get clean
-	if [-e /root/.bash_history]; then
+	if [ -e /root/.bash_history]; then
 		rm /root/.bash_history
 	fi
 	rm -rf /var/backups/* /var/lib/apt/lists/* /root/* /root/.pip /root/.vim /root/.viminfo
-	# history -c #no longer used
+	history -c 
 }
 	
 clean_tor() {
 	rm -rf /var/lib/tor/*
 	cp /etc/tor/torrc.default /etc/tor/torrc
-	if [-e /etc/tor/torrc.backup]; then
+	if [ -e /etc/tor/torrc.backup]; then
 		rm /etc/tor/torrc.backup
 	fi
 }
 
 update_version() {
-	rm ./Tor_Ascii_Art.txt
+	if [ -e ./Tor_Ascii_Art.txt] ##TODO making this if,then rm stuff a seprate function
+		rm ./Tor_Ascii_Art.txt
+	fi
 	wget https://raw.githubusercontent.com/antitree/tor-raspberry-pi-build-scripts/master/scripts/Tor_Ascii_Art.txt
 	if ! [ -e Tor_Ascii_Art.txt ]; then
 		exit 1

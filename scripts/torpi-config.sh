@@ -2,12 +2,12 @@
 # Configuration tool for setting up a bridge on the Raspberry Pi
 # Modified from
 # raspi-config http://github.com/asb/raspi-config
-#
+# Author: AntiTree
 # # #
 
 INTERACTIVE=True
 ASK_TO_REBOOT=1
-TOR=/usr/sbin/tor
+TOR=/usr/sbin/tor #TODO dynamic find
 
 calc_wt_size() {
   # NOTE: it's tempting to redirect stderr to /dev/null, so supress error 
@@ -305,7 +305,7 @@ do_finish() {
     if [ -e /firstboot ];then
 		rm /firstboot
 	fi
-    whiptail --yesno "Would you like to reboot now?" 20 60 2
+    whiptail --yesno "Setup finished. Would you like to reboot now?" 20 60 2
     if [ $? -eq 0 ]; then # yes
       sync
       reboot
@@ -405,13 +405,13 @@ Setting up a bridge node is the best way to help countries where
 Tor is being blocked. A bridge (and ideally an obfuscated bridge)
 is an unlisted entry node that is more difficult to censor. This
 tool will walk you through the steps of configuring a bridge that
-uses obfsproxy \
+uses obfs4proxy \
 " 20 70 1
   if [ $? -ne 0 ]; then
     return 0;
   fi
   DNICK=$(tr -cd 0-9 </dev/urandom | head -c 6)
-  NICKNAME=$(whiptail --inputbox "Bridge Nickname" 20 70 torpi$DNICK 3>&1 1>&2 2>&3)
+  NICKNAME=$(whiptail --inputbox "Bridge Nickname" 20 70 rbb$DNICK 3>&1 1>&2 2>&3)
   if [ $? -ne 0 ]; then
     return 1;
   fi
@@ -517,7 +517,7 @@ to continue?" 20 60 2 \
  
   whiptail --yesno --title "Update software" \
   "It's important to update to the latest version of \
-the obfsproxy to provide an obfuscated bridge.  \
+the obfs4proxy to provide an obfuscated bridge.  \
 Would you like to do so now? \
   " 20 60 2 --yes-button Yes --no-button No 
   RET=$?
@@ -575,9 +575,6 @@ do
   esac
 done
 
-
- 
-  
 #
 #
 #
@@ -588,7 +585,7 @@ while true; do
     "2 Change User Password" "Change password for the default user (pi)" \
 	"3 Configure Networking" "Setup a static IP for the relay" \
     "4 Configure Tor relay " "Configure Tor as an obfsucated bridge node" \
-	"5 Update Obfsproxy " "Update the Obfsproxy for providing an obfuscated bridge" \
+	"5 Update Obfs4proxy " "Update Obfs4proxy for providing an obfuscated bridge" \
     "6 Manage SSH" "Enable or disable SSH access" \
 	"7 Change Hostname" "Set the visible name for this Pi on a network" \
     "0 About torpi-config" "Information about this configuration tool" \
