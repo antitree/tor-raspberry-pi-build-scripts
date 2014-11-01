@@ -60,15 +60,19 @@ reset_ssh() {
 
 clear_cache() {
 	apt-get clean
-	rm /root/.bash_history
+	if [-e /root/.bash_history]; then
+		rm /root/.bash_history
+	fi
 	rm -rf /var/backups/* /var/lib/apt/lists/* /root/* /root/.pip /root/.vim /root/.viminfo
-	history -c
+	# history -c #no longer used
 }
 	
 clean_tor() {
 	rm -rf /var/lib/tor/*
 	cp /etc/tor/torrc.default /etc/tor/torrc
-	rm /etc/tor/torrc.backup
+	if [-e /etc/tor/torrc.backup]; then
+		rm /etc/tor/torrc.backup
+	fi
 }
 
 update_version() {
@@ -78,6 +82,7 @@ update_version() {
 		exit 1
 	fi
 	cp Tor_Ascii_Art.txt /etc/motd
+	rm ./Tor_Ascii_Art.txt
 	echo >> /etc/motd
 	echo Raspberry Bridge $VERSION >>  /etc/motd
 	echo Built: `date +%m-%d-%Y` >> /etc/motd
@@ -91,6 +96,10 @@ update_version() {
 	mv obfs4proxy /usr/local/bin/obfs4proxy
 	chmod +x /usr/local/bin/obfs4proxy
 
+}
+
+reset_password() {
+	echo raspbridge | passwd --stdin
 }
 
 
@@ -107,8 +116,11 @@ echo resetting tor
 clean_tor
 echo resetting SSH
 reset_ssh
+echo resetting password
+reset_password
 echo resetting network configuration
 reset_network
+
 
 
 #Prep for first boot

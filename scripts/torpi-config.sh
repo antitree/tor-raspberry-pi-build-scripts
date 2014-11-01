@@ -419,7 +419,12 @@ uses obfsproxy \
   if [ $? -ne 0 ]; then
     return 1;
   fi
-  PORT=$(whiptail --inputbox "Listening port of the bridge. Ideally this should be 443 but use other ports if this is already in use by your network" 20 70 443 3>&1 1>&2 2>&3)
+  PORT=$(whiptail --inputbox "Listening ORPort for Tor Bridge. Ideally this should be 443 but use other ports if this is already in use by your network" 20 70 443 3>&1 1>&2 2>&3)
+  if [ $? -ne 0 ]; then
+    return 1;
+  fi
+  
+  OPORT=$(whiptail --inputbox "Listening port for Obfs4proxy. Default is 61090" 20 70 443 3>&1 1>&2 2>&3)
   if [ $? -ne 0 ]; then
     return 1;
   fi
@@ -438,7 +443,8 @@ uses obfsproxy \
   sed -i "s/^#BridgeRelay/BridgeRelay/" "$TORRC"
   sed -i "s/^#ExitPolicy reject/ExitPolicy reject/" "$TORRC"
   sed -i "s/^#ServerTransportPlugin/ServerTransportPlugin/" "$TORRC"
-  sed -i "s/^#ServerTransportListenAddr/ServerTransportListenAddr/" "$TORRC"
+  sed -i "s/^#ServerTransportListenAddr obfs4 0.0.0.0:61090/ServerTransportListenAddr obfs4 0.0.0.0:$OPORT/" "$TORRC"
+  sed -i "s/^#S
   if ! check_tor_config ; then
 	whiptail --msgbox "Configuration error: Torrc is not configured correctly" 20 60 1 
 	cp /etc/tor/torrc.backup /etc/tor/torrc
@@ -542,9 +548,14 @@ always re-run torpi-config at any time. The system will not restart to \
 apply its changes.
    
 NOTE: YOU ARE NOT DONE. Make sure that you forward the bridge port \
-through your firewall to the IP address you just configured. 
+through your firewall to the IP address you just configured. Forward \
+the following ports through your firewall if you are not directly \
+connected: \
+
+  ORPort: $PORT 
+  Obfs4Port: $OPORT 
   
-  #" 20 60 2 \
+  " 20 60 2 \
   
 } 
 
