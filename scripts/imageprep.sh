@@ -16,7 +16,7 @@ reset_network() {
   echo >> /etc/network/interfaces
   echo auto eth0  >> /etc/network/interfaces
   echo iface eth0 inet dhcp >> /etc/network/interfaces
-  if [ -e /etc/udev/rules.d/70-persistent-net.rules ]
+  if [ -e /etc/udev/rules.d/70-persistent-net.rules ]; then
 	rm /etc/udev/rules.d/70-persistent-net.rules
   fi
 }
