@@ -541,6 +541,7 @@ NOTE: YOU ARE NOT DONE. Make sure that you forward the bridge port \
 through your firewall to the IP address you just configured. 
   
   #" 20 60 2 \
+  
 } 
 
 
