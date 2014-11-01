@@ -438,6 +438,7 @@ uses obfsproxy \
   sed -i "s/^#BridgeRelay/BridgeRelay/" "$TORRC"
   sed -i "s/^#ExitPolicy reject/ExitPolicy reject/" "$TORRC"
   sed -i "s/^#ServerTransportPlugin/ServerTransportPlugin/" "$TORRC"
+  sed -i "s/^#ServerTransportListenAddr/ServerTransportListenAddr/" "$TORRC"
   if ! check_tor_config ; then
 	whiptail --msgbox "Configuration error: Torrc is not configured correctly" 20 60 1 
 	cp /etc/tor/torrc.backup /etc/tor/torrc
@@ -470,6 +471,7 @@ do_update_obf() {
 	# if sha1sum != sha1sum /obfs4proxy
 	mv obfs4proxy /usr/local/bin/obfs4proxy
 	chmod +x /usr/local/bin/obfs4proxy
+	rm ./obfs4proxy
 		
 	RET=$?
 	if [ $RET -eq 0 ]; then
@@ -479,6 +481,14 @@ do_update_obf() {
 		whiptail --msgbox "There was a problem updating Obfs4proxy" 20 70 1
 		return 1
 	fi
+}
+
+do_update_tor() {
+	echo Checking for new versions of tor...
+	wget https://github.com/antitree/tor-deb-raspberry-pi/raw/master/latest.deb
+	# TODO check hash
+	dpkg --force confold -E -i ./latest.deb
+
 }
 
 
@@ -493,17 +503,9 @@ to continue?" 20 60 2 \
     return $RET
   fi
   
-  
-  #whiptail --yesno --title "Password Change" \
-  #"It's recommended that you change the default root password. Would \
-#you like to do so now? \
-  #" 20 60 2 --yes-button Yes --no-button No 
-  #RET=$?
-  #if [ $RET -eq 1 ]; then
-    #return $RET
-  #else
-	do_change_pass
-  #fi
+  #Force password change  
+  do_change_pass
+
   
   ## Configure networking
   do_network

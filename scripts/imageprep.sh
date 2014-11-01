@@ -16,7 +16,9 @@ reset_network() {
   echo >> /etc/network/interfaces
   echo auto eth0  >> /etc/network/interfaces
   echo iface eth0 inet dhcp >> /etc/network/interfaces
-  rm /etc/udev/rules.d/70-persistent-net.rules
+  if [ -e /etc/udev/rules.d/70-persistent-net.rules ]
+	rm /etc/udev/rules.d/70-persistent-net.rules
+  fi
 }
 
 
@@ -41,7 +43,6 @@ check_updates() {
 	wget https://github.com/antitree/tor-raspberry-pi-build-scripts/raw/master/scripts/torpi-config.sh
 	mv torpi-config.sh /usr/local/bin/torpi-config
 	chmod +x /usr/local/bin/torpi-config
-	
 	
 }
 
@@ -88,6 +89,7 @@ update_version() {
 	wget https://github.com/antitree/tor-deb-raspberry-pi/raw/master/obfs4proxy
 	# TODO check hash #
 	mv obfs4proxy /usr/local/bin/obfs4proxy
+	chmod +x /usr/local/bin/obfs4proxy
 
 }
 
