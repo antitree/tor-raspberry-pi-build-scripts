@@ -99,7 +99,7 @@ update_version() {
 }
 
 reset_password() {
-	echo raspbridge | passwd --stdin
+	echo "root:raspbridge" | chpasswd
 }
 
 
