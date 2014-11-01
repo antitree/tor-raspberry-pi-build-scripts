@@ -462,19 +462,21 @@ check_tor_config() {
 
 do_update_obf() {
 	# Check if obfsproxy is up to date
-	echo Checking for updates for obfsproxy...
-	OBFS=$(pip search obfsproxy | grep "latest")
-	if [ -z "$OBFS" ]; then
-		echo Updating obfsproxy...
-		pip install obfsproxy -U -q
-		rm -rf ./build
-	fi
+	echo Checking for updates for obfs4proxy...
+	wget https://github.com/antitree/tor-deb-raspberry-pi/raw/master/obfs4proxy
+	# TODO check hash #
+	# wget sha1
+	# sha1sum sha1
+	# if sha1sum != sha1sum /obfs4proxy
+	mv obfs4proxy /usr/local/bin/obfs4proxy
+	chmod +x /usr/local/bin/obfs4proxy
+		
 	RET=$?
 	if [ $RET -eq 0 ]; then
-		whiptail --msgbox "Obfsproxy is up to date" 20 70 1
+		whiptail --msgbox "Obfs4proxy is up to date" 20 70 1
 		return 0
 	else:
-		whiptail --msgbox "There was a problem updating Obfsproxy" 20 70 1
+		whiptail --msgbox "There was a problem updating Obfs4proxy" 20 70 1
 		return 1
 	fi
 }
