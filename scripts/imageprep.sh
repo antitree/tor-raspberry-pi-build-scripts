@@ -31,11 +31,18 @@ check_updates() {
 	esac
 	apt-get --purge autoremove
 	
-	OBFS=$(pip search obfsproxy | grep "latest")
-	if [ -z "$OBFS" ]; then
-		echo Updating obfsproxy...
-		pip install obfsproxy -U -q
-	fi
+	#OBFS=$(pip search obfsproxy | grep "latest")
+	#if [ -z "$OBFS" ]; then
+	#	echo Updating obfsproxy...
+	#	pip install obfsproxy -U -q
+	#fi
+	
+	#update torpi-config
+	wget https://github.com/antitree/tor-raspberry-pi-build-scripts/raw/master/scripts/torpi-config.sh
+	mv torpi-config.sh /usr/local/bin/torpi-config
+	chmod +x /usr/local/bin/torpi-config
+	
+	
 }
 
 check_binaries() {
@@ -64,7 +71,6 @@ clean_tor() {
 }
 
 update_version() {
-	##TODO
 	rm ./Tor_Ascii_Art.txt
 	wget https://raw.githubusercontent.com/antitree/tor-raspberry-pi-build-scripts/master/scripts/Tor_Ascii_Art.txt
 	if ! [ -e Tor_Ascii_Art.txt ]; then
@@ -78,6 +84,11 @@ update_version() {
 	echo >> /etc/motd
 	echo Welcome to Bridge Pi. To get started run torpi-config from the command line.
 	echo >> /etc/motd
+	
+	wget https://github.com/antitree/tor-deb-raspberry-pi/raw/master/obfs4proxy
+	# TODO check hash #
+	mv obfs4proxy /usr/local/bin/obfs4proxy
+
 }
 
 
