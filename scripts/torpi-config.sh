@@ -424,7 +424,7 @@ uses obfs4proxy \
     return 1;
   fi
   
-  OPORT=$(whiptail --inputbox "Listening port for Obfs4proxy. Default is 61090" 20 70 443 3>&1 1>&2 2>&3)
+  OPORT=$(whiptail --inputbox "Listening port for Obfs4proxy. Default is 61090" 20 70 61090 3>&1 1>&2 2>&3)
   if [ $? -ne 0 ]; then
     return 1;
   fi
